@@ -35,20 +35,36 @@ export function AdminAuthGate({
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  const [backendUnavailable, setBackendUnavailable] = useState(false);
+
   useEffect(() => {
     let active = true;
     fetch('/api/admin/auth/status')
-      .then((res) => res.json())
+      .then(async (res) => {
+        const contentType = res.headers.get('content-type') || '';
+        if (!res.ok || !contentType.includes('application/json')) {
+          throw new Error('BACKEND_UNAVAILABLE');
+        }
+        return (await res.json()) as AuthStatusResponse;
+      })
       .then((data: AuthStatusResponse) => {
         if (!active) return;
+        setBackendUnavailable(false);
         setStatus(data);
         if (data.adminEmail) {
           setEmail(data.adminEmail);
         }
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         if (!active) return;
-        setErrorMsg('Unable to reach authentication service.');
+        if (err instanceof Error && err.message === 'BACKEND_UNAVAILABLE') {
+          setBackendUnavailable(true);
+          setErrorMsg(
+            'Admin authentication backend (/api) is not running on this host. Static deployments (such as Netlify dist-only) do not run server.ts — open the AI Studio / Cloud Run URL or a Node.js deployment (npm start) to sign in.',
+          );
+        } else {
+          setErrorMsg('Unable to reach authentication service.');
+        }
       })
       .finally(() => {
         if (active) setLoadingStatus(false);
@@ -63,6 +79,13 @@ export function AdminAuthGate({
   const handlePasswordSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
+
+    if (backendUnavailable) {
+      setErrorMsg(
+        'Admin authentication backend (/api) is not running on this host. Please sign in from your Node.js / AI Studio deployment.',
+      );
+      return;
+    }
 
     if (!email.trim()) {
       setErrorMsg('Please enter the administrator email address.');
@@ -91,6 +114,15 @@ export function AdminAuthGate({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), password }),
       });
+
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        setBackendUnavailable(true);
+        setErrorMsg(
+          'Authentication endpoint returned a non-JSON response (static hosting detected). Deploy with Node.js (npm start) or use the AI Studio / Cloud Run URL to sign in.',
+        );
+        return;
+      }
 
       const data = (await res.json()) as {
         token?: string;
