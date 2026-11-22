@@ -1,0 +1,6 @@
+{
+  "name": "Asasora Food — Ready-to-Eat & Agricultural Export",
+  "description": "Asasora Food delivers commercially sterilized ready-to-eat meals and culinary ingredients from Indonesia—crafted with zero artificial preservatives and sealed for safe, long-distance international distribution.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
